@@ -478,88 +478,153 @@ Learn = (() => {
   };
 })();
 
-/* ============================== СЫЗБА БОЙЫНША ЕСЕП (6-тапсырма) ============================== */
+/* ============================== СЫЗБА БОЙЫНША ЕСЕП (6-тапсырма) ==============================
+   Әр есепте СЫЗБА өзгереді: тақырып, суреттер, сандар, өлшем бірлігі (мин / км / м) және «?» орны. */
 Diag = (() => {
-  const ACTS = {
-    skate: { nm: 'конькимен сырғанау', ic: '⛸️', verb: 'конькимен сырғанады', col: '#2f6fed' },
-    ski:   { nm: 'шаңғымен жүру', ic: '⛷️', verb: 'шаңғымен жүрді',     col: '#8e5cf7' },
-    walk:  { nm: 'жаяу жүру', ic: '🚶‍♀️', verb: 'жаяу жүрді',        col: '#22b866' },
-    run:   { nm: 'жүгіру', ic: '🏃‍♀️', verb: 'жүгірді',           col: '#ff8a00' },
-    bike:  { nm: 'велосипед тебу', ic: '🚴‍♀️', verb: 'велосипед тепті',   col: '#e8365a' }
+  /* ---- 3 тақырып: уақыт (оқулық), трасса ұзындығы, эстафета ---- */
+  const THEMES = {
+    watch: {
+      id: 'watch', title: '⏱ Айзеренің смарт-сағаты', unit: 'мин', unitWord: 'минут', runner: '⛷️',
+      intro: 'Айзере смарт-сағатының көмегімен жаттығу режимдерін тексерді.',
+      items: {
+        skate: { ic: '⛸️', col: '#2f6fed', nm: 'конькимен сырғанау', verb: 'конькимен сырғанады' },
+        ski:   { ic: '⛷️', col: '#8e5cf7', nm: 'шаңғымен жүру',      verb: 'шаңғымен жүрді' },
+        walk:  { ic: '🚶‍♀️', col: '#22b866', nm: 'жаяу жүру',         verb: 'жаяу жүрді' },
+        run:   { ic: '🏃‍♀️', col: '#ff8a00', nm: 'жүгіру',            verb: 'жүгірді' },
+        sled:  { ic: '🛷', col: '#e8365a', nm: 'шанамен сырғанау',   verb: 'шанамен сырғанады' }
+      },
+      vals: () => rnd(2, 8) * 5,                                   // 10 … 40 мин
+      part: (it, v, unknown) => `${unknown ? 'біраз уақыт' : `<b>${v} мин</b>`} ${it.verb}`,
+      total: T => `Барлығы <b>${T} мин</b> жаттықты.`,
+      qPart: it => `Айзере неше минут ${it.verb}?`,
+      qTotal: 'Айзере барлығы неше минут жаттықты?'
+    },
+    track: {
+      id: 'track', title: '🏔 Шаңғы жарысының трассасы', unit: 'км', unitWord: 'километр', runner: '⛷️',
+      intro: 'Шаңғы жарысының трассасы бірнеше бөліктен тұрады.',
+      items: {
+        forest: { ic: '🌲', col: '#1f9d5a', nm: 'орман жолы',     gen: 'орман жолының' },
+        hill:   { ic: '⛰️', col: '#8e5cf7', nm: 'тау беткейі',    gen: 'тау беткейінің' },
+        lake:   { ic: '🧊', col: '#2f6fed', nm: 'мұзды көл жағасы', gen: 'көл жағасының' },
+        bridge: { ic: '🌉', col: '#ff8a00', nm: 'көпір арқылы жол', gen: 'көпір жолының' },
+        field:  { ic: '❄️', col: '#e8365a', nm: 'қарлы дала',      gen: 'қарлы даланың' }
+      },
+      vals: () => rnd(2, 9),                                       // 2 … 9 км
+      part: (it, v, unknown) => `${it.nm} — ${unknown ? '<b>белгісіз</b>' : `<b>${v} км</b>`}`,
+      total: T => `Трассаның барлық ұзындығы — <b>${T} км</b>.`,
+      qPart: it => `${cap1(it.gen)} ұзындығы неше километр?`,
+      qTotal: 'Трассаның барлық ұзындығы неше километр?'
+    },
+    relay: {
+      id: 'relay', title: '🎽 Шаңғы эстафетасы', unit: 'м', unitWord: 'метр', runner: '🎿',
+      intro: 'Айзере мен достары шаңғы эстафетасына қатысты.',
+      items: {
+        aizere: { ic: '👧', col: '#e8365a', nm: 'Айзере' },
+        alikhan:{ ic: '👦', col: '#2f6fed', nm: 'Әлихан' },
+        dana:   { ic: '👩', col: '#8e5cf7', nm: 'Дана' },
+        nurlan: { ic: '🧒', col: '#ff8a00', nm: 'Нұрлан' },
+        aru:    { ic: '👱‍♀️', col: '#1f9d5a', nm: 'Ару' }
+      },
+      vals: () => rnd(2, 8) * 50,                                  // 100 … 400 м
+      part: (it, v, unknown) => `${it.nm} ${unknown ? '<b>біраз</b> қашықтық' : `<b>${v} м</b>`} жүрді`,
+      total: T => `Команда барлығы <b>${T} м</b> жүрді.`,
+      qPart: it => `${it.nm} неше метр жүрді?`,
+      qTotal: 'Команда барлығы неше метр жүрді?'
+    }
   };
   const ROUND = 8;
   const svg = $('#dg-svg'), stepBox = $('#dg-step'), storyBox = $('#dg-story');
   let st = null, raf = 0;
 
-  function make(i) {
-    let ids, vals, unk;
-    if (i === 0) { ids = ['skate', 'ski', 'walk']; vals = [25, 30, 15]; unk = 2; }      // дәл оқулықтағы есеп
-    else {
-      const n = i === 1 ? 2 : pick([2, 3, 3]);
-      ids = shuffle(Object.keys(ACTS)).slice(0, n);
-      vals = ids.map(() => rnd(2, 8) * 5);
-      const r = Math.random();
-      unk = (i === 2 || r < .25) ? n : rnd(0, n - 1);      // n = белгісіз бүтін (барлығы)
+  /* ---- есеп жасау ----
+     force: { theme, total } — қате кеткен есептің түрін жаңа сандармен қайталау үшін */
+  function make(i, force = {}) {
+    let th, ids, vals, unk;
+    if (i === 0 && !force.theme) {                               // дәл оқулықтағы есеп
+      th = THEMES.watch; ids = ['skate', 'ski', 'walk']; vals = [25, 30, 15]; unk = 2;
+    } else {
+      th = THEMES[force.theme || (i === 1 ? 'track' : i === 2 ? 'relay' : pick(['watch', 'track', 'relay']))];
+      const n = i <= 2 && !force.theme ? 2 : pick([2, 3, 3]);
+      ids = shuffle(Object.keys(th.items)).slice(0, n);
+      vals = ids.map(() => th.vals());
+      const wantTotal = force.total !== undefined ? force.total : (i === 1 || Math.random() < .3);
+      unk = wantTotal ? n : rnd(0, n - 1);                       // n = белгісіз — бүтін (барлығы)
     }
-    const T = vals.reduce((a, b) => a + b, 0);
-    const n = ids.length;
+    const n = ids.length, T = vals.reduce((a, b) => a + b, 0);
     const ans = unk === n ? T : vals[unk];
-    const qOf = k => k === n ? 'Айзере барлығы неше минут жаттықты?' : `Айзере неше минут ${ACTS[ids[k]].verb}?`;
-    const opts = shuffle([...Array(n + 1).keys()].filter(k => k !== unk)).slice(0, 2).concat(unk);
-    return { ids, vals, unk, T, n, ans, qOf, qOpts: shuffle(opts) };
+    const qOf = k => k === n ? th.qTotal : th.qPart(th.items[ids[k]]);
+    const others = shuffle([...Array(n + 1).keys()].filter(k => k !== unk)).slice(0, 2);
+    return { th, ids, vals, unk, T, n, ans, qOf, qOpts: shuffle([...others, unk]) };
   }
 
   function storyHTML(p, withQ) {
     const ord = p.n === 2 ? ['Алдымен', 'содан кейін'] : ['Алдымен', 'содан кейін', 'соңында'];
-    const parts = p.ids.map((id, k) => `${ord[k]} ${k === p.unk ? 'біраз уақыт' : '<b>' + p.vals[k] + ' мин</b>'} ${ACTS[id].verb}`);
-    let s = `Айзере смарт-сағатының көмегімен жаттығу режимдерін тексерді. ${parts.join(', ')}.`;
-    if (p.unk !== p.n) s += ` Барлығы <b>${p.T} мин</b> жаттықты.`;
-    if (withQ) s += `<span class="dg-q">❓ ${p.qOf(p.unk)}</span>`;
-    return `<b>📖 Ақылман құрастырған есеп:</b><br>${s}`;
+    const parts = p.ids.map((id, k) => p.th.part(p.th.items[id], p.vals[k], k === p.unk));
+    let body;
+    if (p.th.id === 'track') body = `${p.th.intro} Олар: ${parts.join(', ')}.`;
+    else body = `${p.th.intro} ${parts.map((s, k) => `${ord[k]} ${s}`).join(', ')}.`;
+    if (p.unk !== p.n) body += ' ' + p.th.total(p.T);
+    if (withQ) body += `<span class="dg-q">❓ ${p.qOf(p.unk)}</span>`;
+    return `<b>📖 Ақылман құрастырған есеп:</b><br>${body}`;
   }
 
-  /* ---- сызба (SVG) ---- */
-  const X0 = 40, X1 = 600, Y = 112;
-  function bounds(p) {
+  /* ---- СЫЗБА (SVG): әр есепке жаңадан салынады ---- */
+  const X0 = 46, X1 = 590, Y = 150;
+  function bounds(p) {                                           // кесінділер ұзындығы санға пропорционал,
+    const minW = .17 * p.T;                                      // бірақ жазулар сыю үшін тым қысқа болмайды
+    const w = p.vals.map(v => Math.max(v, minW)), W = w.reduce((a, b) => a + b, 0);
     const xs = [X0]; let acc = 0;
-    p.vals.forEach(v => { acc += v; xs.push(X0 + (X1 - X0) * acc / p.T); });
+    w.forEach(v => { acc += v; xs.push(X0 + (X1 - X0) * acc / W); });
     return xs;
   }
-  function draw(p, reveal, runX, runIc, clock) {
-    const xs = bounds(p);
+  function draw(p, reveal, runX, runIc, prog) {
+    const xs = bounds(p), U = p.th.unit;
     let s = '';
+    /* фон: қарлы таулар (тақырыпқа қарай түсі өзгереді) */
+    const sky = { watch: '#e6f0ff', track: '#e3f4ff', relay: '#fff1e0' }[p.th.id];
+    s += `<rect x="0" y="0" width="640" height="236" rx="18" fill="${sky}"/>`;
+    s += `<path d="M0 110 L70 60 L120 90 L200 30 L280 95 L350 55 L430 100 L520 40 L640 95 L640 236 L0 236Z" fill="#cfe0f7" opacity=".7"/>`;
+    s += `<path d="M200 30 L218 52 L206 49 L198 58 L188 49 L180 51Z M520 40 L540 62 L527 58 L518 68 L509 58Z" fill="#fff"/>`;
+    s += `<path d="M0 236 L0 175 Q160 150 320 172 T640 165 L640 236Z" fill="#fff"/>`;
+    s += `<text x="16" y="26" font-size="16" fill="#1f4fb8">${p.th.title}</text>`;
+    /* жол және кесінділер */
     s += `<line x1="${X0}" y1="${Y}" x2="${X1}" y2="${Y}" stroke="#1d2b4f" stroke-width="4" stroke-linecap="round"/>`;
     p.vals.forEach((v, k) => {
-      const a = xs[k], b = xs[k + 1], m = (a + b) / 2, A = ACTS[p.ids[k]];
+      const a = xs[k], b = xs[k + 1], m = (a + b) / 2, it = p.th.items[p.ids[k]];
       const isU = k === p.unk;
-      const lab = isU && !reveal ? '? мин' : `${v} мин`;
+      const lab = isU && !reveal ? `? ${U}` : `${v} ${U}`;
       const col = isU ? (reveal ? '#178a4b' : '#e8365a') : '#1d2b4f';
-      s += `<rect x="${a + 2}" y="${Y - 6}" width="${b - a - 4}" height="12" rx="6" fill="${A.col}" opacity=".25"/>`;
-      s += `<line x1="${a + 6}" y1="78" x2="${b - 12}" y2="78" stroke="${A.col}" stroke-width="3"/>`;
-      s += `<path d="M${b - 4} 78 l-11 -6 v12 z" fill="${A.col}"/>`;
-      s += `<text x="${m}" y="68" text-anchor="middle" font-size="17" fill="${col}">${lab}</text>`;
-      s += `<text x="${m}" y="40" text-anchor="middle" font-size="28">${A.ic}</text>`;
+      s += `<rect x="${a + 2}" y="${Y - 7}" width="${b - a - 4}" height="14" rx="7" fill="${it.col}" opacity=".35"/>`;
+      s += `<line x1="${a + 6}" y1="${Y - 34}" x2="${b - 14}" y2="${Y - 34}" stroke="${it.col}" stroke-width="3"/>`;
+      s += `<path d="M${b - 4} ${Y - 34} l-11 -6 v12 z" fill="${it.col}"/>`;
+      if (isU && !reveal) s += `<rect x="${m - 38}" y="${Y - 62}" width="76" height="26" rx="13" fill="#ffe1e6" stroke="#e8365a" stroke-width="2" class="dg-pulse"/>`;
+      s += `<text x="${m}" y="${Y - 43}" text-anchor="middle" font-size="18" fill="${col}">${lab}</text>`;
+      s += `<text x="${m}" y="${Y - 72}" text-anchor="middle" font-size="30">${it.ic}</text>`;
+      if (p.th.id !== 'watch') s += `<text x="${m}" y="${Y + 26}" text-anchor="middle" font-size="12" fill="#5a6a8f">${it.nm}</text>`;
     });
-    xs.forEach(x => { s += `<line x1="${x}" y1="${Y - 10}" x2="${x}" y2="${Y + 10}" stroke="#1d2b4f" stroke-width="3"/>`; });
-    const mid = (X0 + X1) / 2;
-    s += `<path d="M${X0} 128 Q${X0} 140 ${X0 + 12} 140 L${mid - 12} 140 Q${mid} 140 ${mid} 152 Q${mid} 140 ${mid + 12} 140 L${X1 - 12} 140 Q${X1} 140 ${X1} 128" fill="none" stroke="#5a6a8f" stroke-width="2.5"/>`;
+    xs.forEach(x => { s += `<line x1="${x}" y1="${Y - 11}" x2="${x}" y2="${Y + 11}" stroke="#1d2b4f" stroke-width="3"/>`; });
+    s += `<text x="${X0}" y="${Y + 26}" text-anchor="middle" font-size="11" fill="#5a6a8f">${p.th.id === 'watch' ? '' : 'СТАРТ'}</text>`;
+    s += `<text x="${X1 + 24}" y="${Y + 8}" text-anchor="middle" font-size="24">🏁</text>`;
+    /* бүтінді көрсететін жақша */
+    const mid = (X0 + X1) / 2, by = Y + 36;
+    s += `<path d="M${X0} ${by} Q${X0} ${by + 12} ${X0 + 12} ${by + 12} L${mid - 12} ${by + 12} Q${mid} ${by + 12} ${mid} ${by + 24} Q${mid} ${by + 12} ${mid + 12} ${by + 12} L${X1 - 12} ${by + 12} Q${X1} ${by + 12} ${X1} ${by}" fill="none" stroke="#5a6a8f" stroke-width="2.5"/>`;
     const tU = p.unk === p.n;
-    s += `<text x="${mid}" y="172" text-anchor="middle" font-size="18" fill="${tU ? (reveal ? '#178a4b' : '#e8365a') : '#1d2b4f'}">${tU && !reveal ? '? мин' : p.T + ' мин'} (барлығы)</text>`;
-    s += `<text x="${X1 + 18}" y="${Y + 2}" text-anchor="middle" font-size="22">🏁</text>`;
+    if (tU && !reveal) s += `<rect x="${mid - 90}" y="${by + 30}" width="180" height="28" rx="14" fill="#ffe1e6" stroke="#e8365a" stroke-width="2" class="dg-pulse"/>`;
+    s += `<text x="${mid}" y="${by + 50}" text-anchor="middle" font-size="18" fill="${tU ? (reveal ? '#178a4b' : '#e8365a') : '#1d2b4f'}">${tU && !reveal ? '? ' + U : p.T + ' ' + U} (барлығы)</text>`;
+    /* жүгіретін кейіпкер */
     if (runX != null) {
-      s += `<text x="${runX}" y="${Y - 12}" text-anchor="middle" font-size="26">${runIc}</text>`;
-      s += `<text x="${X1}" y="20" text-anchor="end" font-size="16" fill="#1f4fb8">⏱ ${clock} мин</text>`;
+      s += `<text x="${runX}" y="${Y - 10}" text-anchor="middle" font-size="28">${runIc}</text>`;
+      s += `<text x="624" y="26" text-anchor="end" font-size="16" fill="#1f4fb8">${prog} ${U}</text>`;
     }
     svg.innerHTML = s;
   }
   function animateRun(p, done) {
-    const t0 = performance.now(), dur = 2600, xs = bounds(p);
+    const t0 = performance.now(), dur = 2600;
     cancelAnimationFrame(raf);
     const step = t => {
       if (!st) return;
       const q = clamp((t - t0) / dur, 0, 1), x = X0 + (X1 - X0) * q;
-      let k = 0; while (k < p.n - 1 && x > xs[k + 1]) k++;
-      draw(p, true, x, ACTS[p.ids[k]].ic, Math.round(p.T * q));
+      draw(p, true, x, p.th.runner, Math.round(p.T * q));
       if (q < 1) raf = requestAnimationFrame(step); else done && done();
     };
     raf = requestAnimationFrame(step);
@@ -567,28 +632,26 @@ Diag = (() => {
 
   /* ---- түсіндірме ---- */
   function explainHTML(p) {
-    const known = p.vals.filter((v, k) => k !== p.unk);
+    const U = p.th.unit, known = p.vals.filter((v, k) => k !== p.unk);
     if (p.unk === p.n) {
       return `<div class="ok-box">📐 Ереже: <b>бүтінді табу үшін бөліктерді қосамыз.</b></div>
-        <div class="formula">${p.vals.join(' + ')} = <b>${p.T}</b> мин</div>`;
+        <div class="formula">${p.vals.join(' + ')} = <b>${p.T}</b> ${U}</div>`;
     }
     const sumK = known.reduce((a, b) => a + b, 0);
     let h = `<div class="ok-box">📐 Ереже: <b>белгісіз бөлікті табу үшін бүтіннен белгілі бөліктерді азайтамыз.</b></div>`;
-    if (known.length > 1) h += `<div class="step"><span class="tag">1-қадам</span>Белгілі бөліктерді қосамыз:<div class="formula" style="font-size:20px">${known.join(' + ')} = <b>${sumK}</b> мин</div></div>
-      <div class="step"><span class="tag">2-қадам</span>Бүтіннен азайтамыз:<div class="formula" style="font-size:20px">${p.T} − ${sumK} = <b>${p.ans}</b> мин</div></div>`;
-    else h += `<div class="formula">${p.T} − ${sumK} = <b>${p.ans}</b> мин</div>`;
-    h += `<p>✔ Тексеру: ${p.vals.join(' + ')} = ${p.T} мин</p>`;
+    if (known.length > 1) h += `<div class="step"><span class="tag">1-қадам</span>Белгілі бөліктерді қосамыз:<div class="formula" style="font-size:20px">${known.join(' + ')} = <b>${sumK}</b> ${U}</div></div>
+      <div class="step"><span class="tag">2-қадам</span>Бүтіннен азайтамыз:<div class="formula" style="font-size:20px">${p.T} − ${sumK} = <b>${p.ans}</b> ${U}</div></div>`;
+    else h += `<div class="formula">${p.T} − ${sumK} = <b>${p.ans}</b> ${U}</div>`;
+    h += `<p>✔ Тексеру: ${p.vals.join(' + ')} = ${p.T} ${U}</p>`;
     return h;
   }
   function diagnose(p, ch) {
     const known = p.vals.filter((v, k) => k !== p.unk), sumK = known.reduce((a, b) => a + b, 0);
     if (p.unk !== p.n) {
-      if (ch === p.T + sumK) return `Сен барлық сандарды қостың. Бірақ ${p.T} мин — бұл <b>бүтін</b> (барлық уақыт), ол бөліктердің қосындысы. Белгісіз бөлікті табу үшін азайту керек!`;
+      if (ch === p.T + sumK) return `Сен барлық сандарды қостың. Бірақ ${p.T} ${p.th.unit} — бұл <b>бүтін</b> (барлығы), ол бөліктердің қосындысы. Белгісіз бөлікті табу үшін азайту керек!`;
       if (known.length > 1 && known.some(v => ch === p.T - v)) return 'Сен тек бір бөлікті азайттың. Бүтіннен <b>белгілі бөліктердің бәрін</b> азайту керек!';
       if (ch === sumK) return `${sumK} — бұл белгілі бөліктердің қосындысы ғана. Енді оны бүтіннен (${p.T}) азайт!`;
-    } else {
-      if (p.vals.some(v => ch === v)) return 'Бұл — бір бөлік қана. Сұрақ барлық уақыт туралы!';
-    }
+    } else if (p.vals.includes(ch)) return 'Бұл — бір бөлік қана. Сұрақ <b>барлығы</b> туралы — бөліктердің бәрін қос!';
     return 'Сызбаға тағы бір қара: бүтін — үлкен жақшаның астындағы сан, бөліктер — жебелердің үстіндегі сандар.';
   }
 
@@ -610,23 +673,25 @@ Diag = (() => {
   }
   function chooseQ(k, btn) {
     const p = st.p;
+    if (st.qDone) return;
     Sound.init();
     if (k === p.unk) {
+      st.qDone = true;
       Sound.good(); btn.classList.add('ok');
       storyBox.innerHTML = storyHTML(p, true);
-      setTimeout(solveStep, 500);
+      setTimeout(() => { if (st) solveStep(); }, 500);
     } else {
       Sound.bad(); btn.classList.remove('bad'); void btn.offsetWidth; btn.classList.add('bad');
       st.qErr++;
-      const known = k === p.n ? `барлық уақыт белгілі — ${p.T} мин` : `${ACTS[p.ids[k]].nm} уақыты белгілі — ${p.vals[k]} мин`;
+      const known = k === p.n ? `барлығы белгілі — ${p.T} ${p.th.unit}` : `бұл бөлік белгілі — ${p.vals[k]} ${p.th.unit}`;
       $('#dg-fb').innerHTML = `<div class="diag">🤖 Сызбада ${known}. Сұрақ <b>«?» тұрған жерге</b> қойылады — белгісізді табамыз!</div>`;
     }
   }
   function solveStep() {
     stepBox.innerHTML = `<h3><span class="tag">2-қадам</span>Есепті шығар</h3>
       <form class="ans-row" id="dg-form" autocomplete="off">
-        <input id="dg-in" type="number" inputmode="numeric" min="0" max="999" aria-label="Жауап" placeholder="?">
-        <span class="unit">мин</span>
+        <input id="dg-in" type="number" inputmode="numeric" min="0" max="9999" aria-label="Жауап" placeholder="?">
+        <span class="unit">${p().th.unit}</span>
         <button type="submit" class="btn btn-green">✔ Тексеру</button>
         <button type="button" class="btn btn-purple" id="dg-hint">🤖 Кеңес</button>
       </form>
@@ -635,32 +700,45 @@ Diag = (() => {
     $('#dg-form').addEventListener('submit', ev => { ev.preventDefault(); check(inp.value); });
     $('#dg-hint').addEventListener('click', hint);
   }
+  const p = () => st.p;
   function hint() {
-    const p = st.p; st.hintLvl++;
+    const P = st.p; st.hintLvl++;
     Sound.click();
-    const rule = p.unk === p.n ? 'Бүтінді табу үшін бөліктерді қосамыз.' : 'Белгісіз бөлікті табу үшін бүтіннен белгілі бөліктерді азайтамыз.';
-    const ex = p.unk === p.n ? `${p.vals.join(' + ')} = ?` : `${p.T} − ${p.vals.filter((v, k) => k !== p.unk).join(' − ')} = ?`;
+    const rule = P.unk === P.n ? 'Бүтінді табу үшін бөліктерді қосамыз.' : 'Белгісіз бөлікті табу үшін бүтіннен белгілі бөліктерді азайтамыз.';
+    const ex = P.unk === P.n ? `${P.vals.join(' + ')} = ?` : `${P.T} − ${P.vals.filter((v, k) => k !== P.unk).join(' − ')} = ?`;
     $('#dg-fb').innerHTML = `<div class="ok-box">💡 ${rule}${st.hintLvl >= 2 ? `<div class="formula" style="font-size:22px">${ex}</div>` : '<br><small>Тағы басып көр — келесі кеңес шығады.</small>'}</div>`;
   }
   function check(raw) {
-    const p = st.p, fb = $('#dg-fb');
+    const P = st.p, fb = $('#dg-fb');
     const v = raw === '' ? NaN : Number(raw);
     if (!Number.isFinite(v) || v < 0 || !Number.isInteger(v)) { fb.innerHTML = '<div class="diag">Жауапқа бүтін сан жаз 🙂</div>'; return; }
-    $('#dg-form').querySelectorAll('button,input').forEach(x => { x.disabled = true; });
-    if (v === p.ans) {
+    if (v === P.ans) {
+      lock();
       st.correct++;
-      const pts = st.hintLvl ? 5 : (st.qErr ? 8 : 10);
+      const pts = st.tries ? 4 : st.hintLvl ? 6 : st.qErr ? 8 : 10;
       st.score += pts; $('#dg-score').textContent = st.score;
       Sound.good();
-      fb.innerHTML = `<div class="ok-box">🎉 ${pick(PRAISE)} +${pts} ⭐ Жауабы: <b>${p.ans} мин</b>. Айзере мәреге жетті!</div>${explainHTML(p)}`;
-      animateRun(p, () => { Sound.win(); });
-    } else {
-      st.wrong++;
-      Sound.bad();
-      draw(p, true);
-      fb.innerHTML = `<div class="diag">🤖 Сенің жауабың: <s>${v}</s>. ${diagnose(p, v)}</div>${explainHTML(p)}`;
-      st.retry.push(p);
+      fb.innerHTML = `<div class="ok-box">🎉 ${pick(PRAISE)} +${pts} ⭐ Жауабы: <b>${P.ans} ${P.th.unit}</b>. Мәреге жеттік!</div>${explainHTML(P)}`;
+      animateRun(P, () => { Sound.win(); });
+      nextBtn(fb);
+      return;
     }
+    Sound.bad();
+    if (!st.tries) {                                             // 1-қате: тағы бір мүмкіндік
+      st.tries = 1;
+      const inp = $('#dg-in'); inp.value = ''; inp.focus();
+      fb.innerHTML = `<div class="diag">🤖 Сенің жауабың: <s>${v}</s>. ${diagnose(P, v)}<br><b>Тағы бір рет байқап көр!</b> 💪</div>`;
+      return;
+    }
+    lock();                                                      // 2-қате: шешуін көрсетеміз
+    st.wrong++;
+    draw(P, true);
+    fb.innerHTML = `<div class="diag">🤖 Сенің жауабың: <s>${v}</s>. ${diagnose(P, v)}</div>${explainHTML(P)}`;
+    st.retry.push({ theme: P.th.id, total: P.unk === P.n });
+    nextBtn(fb);
+  }
+  function lock() { $('#dg-form').querySelectorAll('button,input').forEach(x => { x.disabled = true; }); }
+  function nextBtn(fb) {
     const nb = document.createElement('div'); nb.className = 'dg-actions';
     nb.innerHTML = `<button type="button" class="btn btn-blue" id="dg-next">${st.i + 1 >= ROUND ? '🏁 Нәтиже' : 'Келесі есеп ▶'}</button>`;
     fb.appendChild(nb);
@@ -671,13 +749,10 @@ Diag = (() => {
     Sound.click();
     st.i++;
     if (st.i >= ROUND) return finish();
-    st.qErr = 0; st.hints = 0; st.hintLvl = 0;
-    // қате кеткен есептің түрі қайта беріледі (жаңа сандармен)
-    if (st.retry.length && st.i >= 3 && Math.random() < .6) {
-      const old = st.retry.shift(); let p;
-      do { p = make(st.i); } while (p.n !== old.n && Math.random() < .8);
-      st.p = p;
-    } else st.p = make(st.i);
+    st.qErr = 0; st.hintLvl = 0; st.tries = 0; st.qDone = false;
+    // қате кеткен есептің ТҮРІ (тақырып + «?» орны) жаңа сандармен қайта беріледі
+    if (st.retry.length && st.i >= 3 && Math.random() < .6) st.p = make(st.i, st.retry.shift());
+    else st.p = make(st.i);
     render();
   }
   function finish() {
@@ -688,7 +763,7 @@ Diag = (() => {
       again: () => show('diag'), next: null });
   }
   return {
-    enter() { cancelAnimationFrame(raf); st = { i: 0, score: 0, correct: 0, wrong: 0, qErr: 0, hints: 0, hintLvl: 0, retry: [], t0: performance.now() }; st.p = make(0); render(); },
+    enter() { cancelAnimationFrame(raf); st = { i: 0, score: 0, correct: 0, wrong: 0, qErr: 0, hintLvl: 0, tries: 0, qDone: false, retry: [], t0: performance.now() }; st.p = make(0); render(); },
     stop() { cancelAnimationFrame(raf); st = null; },
     _make: make
   };
@@ -738,7 +813,7 @@ Race = (() => {
     if (due >= 0) { q = genDirect(st.queue[due].f); st.queue.splice(due, 1); }
     else q = st.lvl.gen(st);
     st.lastKey = q.fact; st.cur = q; st.qi++;
-    $('#q-hint').textContent = q.hint;
+    $('#q-hint').textContent = `${st.qi} / ${TOTAL} · ${q.hint}`;
     $('#q-text').textContent = q.text;
     const qb = $('#qbox'); qb.classList.remove('pop'); void qb.offsetWidth; qb.classList.add('pop');
     const dist = H + 70 - skierY();
@@ -1210,5 +1285,5 @@ $('#modal').addEventListener('click', ev => { if (ev.target.id === 'modal') clos
 
 /* ============================== БАСТАУ ============================== */
 renderMenu();
-window.__AIZERE__ = { Race, Diag, genDirect, genReverse, genExpr, genSqCube, parseExpr, evalToks, TEXTBOOK, FACTS, describeNum };
+window.__AIZERE__ = { Race, Diag, LEVELS, genDirect, genReverse, genExpr, genSqCube, parseExpr, evalToks, TEXTBOOK, FACTS, describeNum };
 })();
