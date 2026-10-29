@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Айзеренің шаңғы жарысы — Санның квадраты және кубы</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛷️</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="menu">
+<canvas id="snow" aria-hidden="true"></canvas>
+
+<header class="topbar">
+  <button id="btn-home" class="icon-btn" type="button" title="Мәзір" aria-label="Мәзір">🏠</button>
+  <div class="brand">⛷️ Айзеренің шаңғы жарысы</div>
+  <button id="btn-sound" class="icon-btn" type="button" title="Дыбыс" aria-label="Дыбыс">🔊</button>
+</header>
+
+<main id="app">
+
+  <!-- ===================== МӘЗІР ===================== -->
+  <section id="scr-menu" class="screen active">
+    <div class="hero">
+      <svg class="hero-art" viewBox="0 0 600 170" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="mt2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9dbcf0"/><stop offset="1" stop-color="#d6e6fb"/></linearGradient>
+        </defs>
+        <path d="M0 150 L90 60 L150 110 L240 20 L330 120 L400 70 L480 130 L560 50 L600 90 L600 170 L0 170Z" fill="url(#mt2)"/>
+        <path d="M240 20 L265 48 L250 44 L240 56 L228 44 L215 46Z M560 50 L580 72 L566 68 L558 78 L548 68Z M90 60 L108 78 L96 75 L88 84 L80 76Z" fill="#fff"/>
+        <path d="M0 170 L0 140 Q150 100 300 135 T600 125 L600 170Z" fill="#fff"/>
+        <g fill="#1f7a4d">
+          <path d="M40 140 l14 -38 l14 38z"/><path d="M45 122 l9 -24 l9 24z"/>
+          <path d="M520 132 l16 -44 l16 44z"/><path d="M526 112 l10 -28 l10 28z"/>
+          <path d="M470 140 l10 -28 l10 28z"/>
+        </g>
+        <g fill="#fff"><path d="M48 112 l6 -14 l6 14z"/><path d="M528 100 l8 -18 l8 18z"/></g>
+        <rect x="560" y="105" width="3" height="40" fill="#555"/><path d="M563 105 l22 8 l-22 8z" fill="#2ecc71"/>
+      </svg>
+      <h1>Айзеренің шаңғы жарысы</h1>
+      <p class="sub">Санның квадраты және кубы · Математика</p>
+    </div>
+
+    <div class="name-row">
+      <label for="player-name">Атың кім?</label>
+      <input id="player-name" maxlength="16" placeholder="Атыңды жаз" autocomplete="off">
+    </div>
+
+    <div class="menu-grid">
+      <button class="card c-blue" type="button" data-go="learn"><span class="ic">📘</span><b>Үйрену</b><small>Квадрат пен кубты көріп, түсін</small></button>
+      <button class="card c-red" type="button" data-go="levels"><span class="ic">⛷️</span><b>Шаңғы жарысы</b><small>Дұрыс жауабы бар қақпадан өт!</small></button>
+      <button class="card c-orange" type="button" data-go="diag"><span class="ic">📏</span><b>Сызба бойынша есеп</b><small>Сызбаны оқы, есеп құрастыр, шығар (6-тапсырма)</small></button>
+      <button class="card c-green" type="button" data-go="tf"><span class="ic">✅</span><b>Ақиқат па, жалған ба?</b><small>60 секундтық сынақ</small></button>
+      <button class="card c-purple" type="button" data-go="map"><span class="ic">🏆</span><b>Шеберлік картасы</b><small>Қанша меңгердің?</small></button>
+    </div>
+
+    <div class="mastery-mini">
+      <div class="mm-label">Меңгерілді: <b id="mm-text">0 / 15</b></div>
+      <div class="bar"><div class="bar-fill" id="mm-bar"></div></div>
+    </div>
+  </section>
+
+  <!-- ===================== ДЕҢГЕЙЛЕР ===================== -->
+  <section id="scr-levels" class="screen">
+    <h2 class="scr-title">⛷️ Деңгейді таңда</h2>
+    <p class="scr-sub">Сұрақ жоғарыда шығады. Төменнен үш қақпа келеді — <b>дұрыс жауабы бар қақпаға</b> бұрыл!<br>Басқару: <kbd>←</kbd> <kbd>→</kbd> немесе экрандағы ◀ ▶ батырмалары.</p>
+    <div class="level-list" id="level-list"></div>
+  </section>
+
+  <!-- ===================== ҮЙРЕНУ ===================== -->
+  <section id="scr-learn" class="screen">
+    <h2 class="scr-title">📘 Үйрену</h2>
+    <div class="tabs" role="tablist">
+      <button class="tab active" type="button" data-e="2">🟦 Квадрат</button>
+      <button class="tab" type="button" data-e="3">🧊 Куб</button>
+    </div>
+    <div class="learn-grid">
+      <div class="panel viz-card">
+        <canvas id="viz"></canvas>
+        <div class="viz-count" id="viz-count"></div>
+        <div class="slider-row">
+          <button id="n-minus" class="round-btn" type="button" aria-label="Азайту">−</button>
+          <input type="range" id="n-range" min="1" max="10" value="3" aria-label="Сан">
+          <button id="n-plus" class="round-btn" type="button" aria-label="Көбейту">+</button>
+        </div>
+      </div>
+      <div class="panel info-card">
+        <div class="big-formula" id="lf-formula"></div>
+        <div class="read" id="lf-read"></div>
+        <div class="rule" id="lf-rule"></div>
+        <div class="table-title" id="lf-table-title"></div>
+        <div class="chips" id="lf-table"></div>
+      </div>
+    </div>
+
+    <div class="panel robot-card">
+      <div class="robot-head">
+        <div class="robot-ava" aria-hidden="true">🤖</div>
+        <div><b>Ақылман</b> — ЖИ-көмекші<br><small>Кез келген мысалды жаз — шешуін қадам-қадаммен көрсетемін!</small></div>
+      </div>
+      <div class="chat" id="chat" aria-live="polite"></div>
+      <form id="chat-form" class="chat-form" autocomplete="off">
+        <input id="chat-in" placeholder="Мысалы: 7², 4³, 8²+4³−5² немесе 49">
+        <button type="submit" class="btn btn-blue">Сұра</button>
+      </form>
+      <div class="sup-keys">
+        <button type="button" data-k="²">x²</button><button type="button" data-k="³">x³</button>
+        <button type="button" data-k="+">+</button><button type="button" data-k="−">−</button>
+        <button type="button" data-k="·">·</button><button type="button" data-k=":">:</button>
+        <button type="button" data-k="C" class="clr">⌫</button>
+      </div>
+      <div class="chips" id="chat-examples"></div>
+    </div>
+  </section>
+
+  <!-- ===================== СЫЗБА БОЙЫНША ЕСЕП (6-тапсырма) ===================== -->
+  <section id="scr-diag" class="screen">
+    <h2 class="scr-title">📏 Сызба бойынша есеп</h2>
+    <p class="scr-sub">Оқулық, 6-тапсырма: сызбаны оқы, сұрақ құрастыр және есепті шығар!</p>
+    <div class="dg-wrap">
+      <div class="tf-top">
+        <div class="hud-chip">📝 <span id="dg-num">1 / 8</span></div>
+        <div class="hud-chip">⭐ <span id="dg-score">0</span></div>
+      </div>
+      <div class="bar tf-bar"><div class="bar-fill" id="dg-bar"></div></div>
+      <div class="panel dg-card">
+        <svg id="dg-svg" viewBox="0 0 640 178" role="img" aria-label="Есептің сызбасы"></svg>
+        <div class="dg-story" id="dg-story"></div>
+      </div>
+      <div class="panel dg-step" id="dg-step" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- ===================== ЖАРЫС ===================== -->
+  <section id="scr-race" class="screen race">
+    <canvas id="race-cv"></canvas>
+    <div class="hud">
+      <div class="hud-row">
+        <button id="btn-pause" class="icon-btn" type="button" aria-label="Үзіліс">⏸</button>
+        <div class="hud-chip" id="hud-hearts">❤️❤️❤️</div>
+        <div class="hud-chip">⭐ <span id="hud-score">0</span></div>
+        <div class="hud-chip">⏱ <span id="hud-time">0.0</span> с</div>
+      </div>
+      <div class="track" aria-hidden="true">
+        <div class="track-fill" id="hud-prog"></div>
+        <span class="track-skier" id="hud-skier">⛷️</span>
+        <span class="track-flag">🏁</span>
+      </div>
+      <div class="qbox" id="qbox">
+        <small id="q-hint"></small>
+        <div id="q-text"></div>
+      </div>
+    </div>
+    <div class="touch">
+      <button id="t-left" type="button" aria-label="Солға">◀</button>
+      <button id="t-right" type="button" aria-label="Оңға">▶</button>
+    </div>
+    <div id="race-ov" class="overlay hidden"></div>
+  </section>
+
+  <!-- ===================== АҚИҚАТ / ЖАЛҒАН ===================== -->
+  <section id="scr-tf" class="screen">
+    <h2 class="scr-title">✅ Ақиқат па, жалған ба?</h2>
+    <div class="tf-wrap">
+      <div class="tf-top">
+        <div class="hud-chip">⭐ <span id="tf-score">0</span></div>
+        <div class="hud-chip">🔥 <span id="tf-streak">0</span></div>
+        <div class="hud-chip">⏱ <span id="tf-time">60</span></div>
+      </div>
+      <div class="bar tf-bar"><div class="bar-fill" id="tf-bar"></div></div>
+      <div class="tf-card" id="tf-card"><div class="tf-stmt" id="tf-stmt"></div></div>
+      <div class="tf-btns">
+        <button id="tf-true" class="btn big btn-green" type="button">✔ Ақиқат</button>
+        <button id="tf-false" class="btn big btn-red" type="button">✖ Жалған</button>
+      </div>
+      <div id="tf-explain" class="tf-explain" aria-live="polite"></div>
+      <div id="tf-start" class="tf-start">
+        <p>Экранда пікір шығады. Ол дұрыс болса — <b>Ақиқат</b>, қате болса — <b>Жалған</b> бас.<br>60 секундта неше дұрыс жауап бере аласың?</p>
+        <p class="muted">Пернетақта: <kbd>←</kbd> Ақиқат, <kbd>→</kbd> Жалған</p>
+        <button id="tf-go" class="btn big btn-blue" type="button">▶ Бастау</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ШЕБЕРЛІК КАРТАСЫ ===================== -->
+  <section id="scr-map" class="screen">
+    <h2 class="scr-title">🏆 Шеберлік картасы</h2>
+    <div class="panel map-panel">
+      <div class="map-prog">
+        <div class="big-pct" id="map-pct">0%</div>
+        <div class="map-prog-right">
+          <div class="bar"><div class="bar-fill" id="map-bar"></div></div>
+          <p id="map-msg"></p>
+        </div>
+      </div>
+      <p class="muted legend"><span class="lg l0"></span> жаңа <span class="lg l1"></span> үйреніп жатыр <span class="lg l3"></span> меңгерілді ⭐ — әр мысалға 3 рет дұрыс жауап бер (қате кетсе, ұпай азаяды)!</p>
+      <h3>🟦 Квадраттар</h3>
+      <div class="fact-grid" id="map-sq"></div>
+      <h3>🧊 Кубтар</h3>
+      <div class="fact-grid" id="map-cu"></div>
+      <p id="map-diag" class="map-diag"></p>
+      <div class="map-actions">
+        <button id="map-train" class="btn btn-purple" type="button">🤖 Әлсіз жерлерді жаттықтыру</button>
+        <button id="map-cert" class="btn btn-gold" type="button">🎓 Сертификат</button>
+        <button id="map-reset" class="btn btn-ghost" type="button">↺ Прогресті тазалау</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== НӘТИЖЕ ===================== -->
+  <section id="scr-result" class="screen">
+    <div class="panel result-card">
+      <div class="res-emoji" id="res-emoji">🏁</div>
+      <h2 id="res-title">Мәре!</h2>
+      <div class="stars" id="res-stars"></div>
+      <div class="res-stats" id="res-stats"></div>
+      <p id="res-msg" class="res-msg"></p>
+      <div class="res-actions">
+        <button id="res-again" class="btn btn-blue" type="button">↻ Қайта ойнау</button>
+        <button id="res-next" class="btn btn-green" type="button">Келесі деңгей ▶</button>
+        <button id="res-menu" class="btn btn-ghost" type="button">🏠 Мәзір</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true"><div class="modal-box" id="modal-box"></div></div>
+
+<script src="game.js"></script>
+</body>
+</html>
