@@ -1,4 +1,4 @@
-/* Айзеренің шаңғы жарысы — Санның квадраты және кубы + Сызба бойынша есеп
+/* Айзеренің шаңғы жарысы — Санның квадраты және кубы
    Таза HTML/CSS/JS. Интернетсіз жұмыс істейді. */
 'use strict';
 (() => {
@@ -21,7 +21,7 @@ const PRAISE = ['Керемет!', 'Жарайсың!', 'Тамаша!', 'Дұп
 
 /* ============================== САҚТАУ ============================== */
 const KEY = 'aizere_ski_v1';
-const D = { name: '', mastery: {}, best: {}, stars: {}, muted: false, tfBest: 0 };
+const D = { name: '', mastery: {}, best: {}, stars: {}, muted: false, tfBest: 0, music: true };
 try { Object.assign(D, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* ignore */ }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { /* ignore */ } };
 
@@ -295,11 +295,12 @@ const levelById = id => LEVELS.find(l => l.id === id);
 
 /* ============================== ЭКРАНДАР ============================== */
 let current = 'menu';
-let Learn, Race, TF, Diag, Result;
+let Learn, Race, TF, Diag, Result, Break;
 function show(id) {
   if (current === 'race' && id !== 'race') Race.stop();
   if (current === 'tf' && id !== 'tf') TF.stop();
   if (current === 'diag' && id !== 'diag') Diag.stop();
+  if (current === 'break' && id !== 'break') Break.stop();
   current = id;
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === 'scr-' + id));
   document.body.dataset.screen = id;
@@ -310,12 +311,13 @@ function show(id) {
   if (id === 'map') renderMap();
   if (id === 'tf') TF.enter();
   if (id === 'diag') Diag.enter();
+  if (id === 'break') Break.enter();
 }
 $$('[data-go]').forEach(b => b.addEventListener('click', () => { Sound.init(); Sound.click(); show(b.dataset.go); }));
 $('#btn-home').addEventListener('click', () => { Sound.click(); show('menu'); });
 const soundBtn = $('#btn-sound');
 const paintSound = () => { soundBtn.textContent = D.muted ? '🔇' : '🔊'; };
-soundBtn.addEventListener('click', () => { D.muted = !D.muted; save(); paintSound(); Sound.init(); Sound.click(); });
+soundBtn.addEventListener('click', () => { D.muted = !D.muted; save(); paintSound(); Sound.init(); Sound.click(); if (Break) Break.applyVolume(); });
 paintSound();
 
 const nameIn = $('#player-name');
@@ -478,184 +480,118 @@ Learn = (() => {
   };
 })();
 
-/* ============================== СЫЗБА БОЙЫНША ЕСЕП (6-тапсырма) ==============================
-   Әр есепте СЫЗБА өзгереді: тақырып, суреттер, сандар, өлшем бірлігі (мин / км / м) және «?» орны. */
+/* ============================== СЫЗБА БОЙЫНША ЕСЕП (6-тапсырма) ============================== */
 Diag = (() => {
-  /* ---- 3 тақырып: уақыт (оқулық), трасса ұзындығы, эстафета ---- */
-  const THEMES = {
-    watch: {
-      id: 'watch', title: '⏱ Айзеренің смарт-сағаты', unit: 'мин', unitWord: 'минут', runner: '⛷️',
-      intro: 'Айзере смарт-сағатының көмегімен жаттығу режимдерін тексерді.',
-      items: {
-        skate: { ic: '⛸️', col: '#2f6fed', nm: 'конькимен сырғанау', verb: 'конькимен сырғанады' },
-        ski:   { ic: '⛷️', col: '#8e5cf7', nm: 'шаңғымен жүру',      verb: 'шаңғымен жүрді' },
-        walk:  { ic: '🚶‍♀️', col: '#22b866', nm: 'жаяу жүру',         verb: 'жаяу жүрді' },
-        run:   { ic: '🏃‍♀️', col: '#ff8a00', nm: 'жүгіру',            verb: 'жүгірді' },
-        sled:  { ic: '🛷', col: '#e8365a', nm: 'шанамен сырғанау',   verb: 'шанамен сырғанады' }
-      },
-      vals: () => rnd(2, 8) * 5,                                   // 10 … 40 мин
-      part: (it, v, unknown) => `${unknown ? 'біраз уақыт' : `<b>${v} мин</b>`} ${it.verb}`,
-      total: T => `Барлығы <b>${T} мин</b> жаттықты.`,
-      qPart: it => `Айзере неше минут ${it.verb}?`,
-      qTotal: 'Айзере барлығы неше минут жаттықты?'
-    },
-    track: {
-      id: 'track', title: '🏔 Шаңғы жарысының трассасы', unit: 'км', unitWord: 'километр', runner: '⛷️',
-      intro: 'Шаңғы жарысының трассасы бірнеше бөліктен тұрады.',
-      items: {
-        forest: { ic: '🌲', col: '#1f9d5a', nm: 'орман жолы',     gen: 'орман жолының' },
-        hill:   { ic: '⛰️', col: '#8e5cf7', nm: 'тау беткейі',    gen: 'тау беткейінің' },
-        lake:   { ic: '🧊', col: '#2f6fed', nm: 'мұзды көл жағасы', gen: 'көл жағасының' },
-        bridge: { ic: '🌉', col: '#ff8a00', nm: 'көпір арқылы жол', gen: 'көпір жолының' },
-        field:  { ic: '❄️', col: '#e8365a', nm: 'қарлы дала',      gen: 'қарлы даланың' }
-      },
-      vals: () => rnd(2, 9),                                       // 2 … 9 км
-      part: (it, v, unknown) => `${it.nm} — ${unknown ? '<b>белгісіз</b>' : `<b>${v} км</b>`}`,
-      total: T => `Трассаның барлық ұзындығы — <b>${T} км</b>.`,
-      qPart: it => `${cap1(it.gen)} ұзындығы неше километр?`,
-      qTotal: 'Трассаның барлық ұзындығы неше километр?'
-    },
-    relay: {
-      id: 'relay', title: '🎽 Шаңғы эстафетасы', unit: 'м', unitWord: 'метр', runner: '🎿',
-      intro: 'Айзере мен достары шаңғы эстафетасына қатысты.',
-      items: {
-        aizere: { ic: '👧', col: '#e8365a', nm: 'Айзере' },
-        alikhan:{ ic: '👦', col: '#2f6fed', nm: 'Әлихан' },
-        dana:   { ic: '👩', col: '#8e5cf7', nm: 'Дана' },
-        nurlan: { ic: '🧒', col: '#ff8a00', nm: 'Нұрлан' },
-        aru:    { ic: '👱‍♀️', col: '#1f9d5a', nm: 'Ару' }
-      },
-      vals: () => rnd(2, 8) * 50,                                  // 100 … 400 м
-      part: (it, v, unknown) => `${it.nm} ${unknown ? '<b>біраз</b> қашықтық' : `<b>${v} м</b>`} жүрді`,
-      total: T => `Команда барлығы <b>${T} м</b> жүрді.`,
-      qPart: it => `${it.nm} неше метр жүрді?`,
-      qTotal: 'Команда барлығы неше метр жүрді?'
-    }
+  const ACTS = {
+    skate: { nm: 'конькимен сырғанау', ic: '⛸️', verb: 'конькимен сырғанады', col: '#2f6fed' },
+    ski:   { nm: 'шаңғымен жүру', ic: '⛷️', verb: 'шаңғымен жүрді',     col: '#8e5cf7' },
+    walk:  { nm: 'жаяу жүру', ic: '🚶‍♀️', verb: 'жаяу жүрді',        col: '#22b866' },
+    run:   { nm: 'жүгіру', ic: '🏃‍♀️', verb: 'жүгірді',           col: '#ff8a00' },
+    bike:  { nm: 'велосипед тебу', ic: '🚴‍♀️', verb: 'велосипед тепті',   col: '#e8365a' }
   };
   const ROUND = 8;
   const svg = $('#dg-svg'), stepBox = $('#dg-step'), storyBox = $('#dg-story');
   let st = null, raf = 0;
 
-  /* ---- есеп жасау ----
-     force: { theme, total } — қате кеткен есептің түрін жаңа сандармен қайталау үшін */
-  function make(i, force = {}) {
-    let th, ids, vals, unk;
-    if (i === 0 && !force.theme) {                               // дәл оқулықтағы есеп
-      th = THEMES.watch; ids = ['skate', 'ski', 'walk']; vals = [25, 30, 15]; unk = 2;
-    } else {
-      th = THEMES[force.theme || (i === 1 ? 'track' : i === 2 ? 'relay' : pick(['watch', 'track', 'relay']))];
-      const n = i <= 2 && !force.theme ? 2 : pick([2, 3, 3]);
-      ids = shuffle(Object.keys(th.items)).slice(0, n);
-      vals = ids.map(() => th.vals());
-      const wantTotal = force.total !== undefined ? force.total : (i === 1 || Math.random() < .3);
-      unk = wantTotal ? n : rnd(0, n - 1);                       // n = белгісіз — бүтін (барлығы)
+  function make(i) {
+    let ids, vals, unk;
+    if (i === 0) { ids = ['skate', 'ski', 'walk']; vals = [25, 30, 15]; unk = 2; }
+    else {
+      const n = i === 1 ? 2 : pick([2, 3, 3]);
+      ids = shuffle(Object.keys(ACTS)).slice(0, n);
+      vals = ids.map(() => rnd(2, 8) * 5);
+      const r = Math.random();
+      unk = (i === 2 || r < .25) ? n : rnd(0, n - 1);
     }
-    const n = ids.length, T = vals.reduce((a, b) => a + b, 0);
+    const T = vals.reduce((a, b) => a + b, 0);
+    const n = ids.length;
     const ans = unk === n ? T : vals[unk];
-    const qOf = k => k === n ? th.qTotal : th.qPart(th.items[ids[k]]);
-    const others = shuffle([...Array(n + 1).keys()].filter(k => k !== unk)).slice(0, 2);
-    return { th, ids, vals, unk, T, n, ans, qOf, qOpts: shuffle([...others, unk]) };
+    const qOf = k => k === n ? 'Айзере барлығы неше минут жаттықты?' : `Айзере неше минут ${ACTS[ids[k]].verb}?`;
+    const opts = shuffle([...Array(n + 1).keys()].filter(k => k !== unk)).slice(0, 2).concat(unk);
+    return { ids, vals, unk, T, n, ans, qOf, qOpts: shuffle(opts) };
   }
 
   function storyHTML(p, withQ) {
     const ord = p.n === 2 ? ['Алдымен', 'содан кейін'] : ['Алдымен', 'содан кейін', 'соңында'];
-    const parts = p.ids.map((id, k) => p.th.part(p.th.items[id], p.vals[k], k === p.unk));
-    let body;
-    if (p.th.id === 'track') body = `${p.th.intro} Олар: ${parts.join(', ')}.`;
-    else body = `${p.th.intro} ${parts.map((s, k) => `${ord[k]} ${s}`).join(', ')}.`;
-    if (p.unk !== p.n) body += ' ' + p.th.total(p.T);
-    if (withQ) body += `<span class="dg-q">❓ ${p.qOf(p.unk)}</span>`;
-    return `<b>📖 Ақылман құрастырған есеп:</b><br>${body}`;
+    const parts = p.ids.map((id, k) => `${ord[k]} ${k === p.unk ? 'біраз уақыт' : '<b>' + p.vals[k] + ' мин</b>'} ${ACTS[id].verb}`);
+    let s = `Айзере смарт-сағатының көмегімен жаттығу режимдерін тексерді. ${parts.join(', ')}.`;
+    if (p.unk !== p.n) s += ` Барлығы <b>${p.T} мин</b> жаттықты.`;
+    if (withQ) s += `<span class="dg-q">❓ ${p.qOf(p.unk)}</span>`;
+    return `<b>📖 Ақылман құрастырған есеп:</b><br>${s}`;
   }
 
-  /* ---- СЫЗБА (SVG): әр есепке жаңадан салынады ---- */
-  const X0 = 46, X1 = 590, Y = 150;
-  function bounds(p) {                                           // кесінділер ұзындығы санға пропорционал,
-    const minW = .17 * p.T;                                      // бірақ жазулар сыю үшін тым қысқа болмайды
-    const w = p.vals.map(v => Math.max(v, minW)), W = w.reduce((a, b) => a + b, 0);
+  const X0 = 40, X1 = 600, Y = 112;
+  function bounds(p) {
     const xs = [X0]; let acc = 0;
-    w.forEach(v => { acc += v; xs.push(X0 + (X1 - X0) * acc / W); });
+    p.vals.forEach(v => { acc += v; xs.push(X0 + (X1 - X0) * acc / p.T); });
     return xs;
   }
-  function draw(p, reveal, runX, runIc, prog) {
-    const xs = bounds(p), U = p.th.unit;
+  function draw(p, reveal, runX, runIc, clock) {
+    const xs = bounds(p);
     let s = '';
-    /* фон: қарлы таулар (тақырыпқа қарай түсі өзгереді) */
-    const sky = { watch: '#e6f0ff', track: '#e3f4ff', relay: '#fff1e0' }[p.th.id];
-    s += `<rect x="0" y="0" width="640" height="236" rx="18" fill="${sky}"/>`;
-    s += `<path d="M0 110 L70 60 L120 90 L200 30 L280 95 L350 55 L430 100 L520 40 L640 95 L640 236 L0 236Z" fill="#cfe0f7" opacity=".7"/>`;
-    s += `<path d="M200 30 L218 52 L206 49 L198 58 L188 49 L180 51Z M520 40 L540 62 L527 58 L518 68 L509 58Z" fill="#fff"/>`;
-    s += `<path d="M0 236 L0 175 Q160 150 320 172 T640 165 L640 236Z" fill="#fff"/>`;
-    s += `<text x="16" y="26" font-size="16" fill="#1f4fb8">${p.th.title}</text>`;
-    /* жол және кесінділер */
     s += `<line x1="${X0}" y1="${Y}" x2="${X1}" y2="${Y}" stroke="#1d2b4f" stroke-width="4" stroke-linecap="round"/>`;
     p.vals.forEach((v, k) => {
-      const a = xs[k], b = xs[k + 1], m = (a + b) / 2, it = p.th.items[p.ids[k]];
+      const a = xs[k], b = xs[k + 1], m = (a + b) / 2, A = ACTS[p.ids[k]];
       const isU = k === p.unk;
-      const lab = isU && !reveal ? `? ${U}` : `${v} ${U}`;
+      const lab = isU && !reveal ? '? мин' : `${v} мин`;
       const col = isU ? (reveal ? '#178a4b' : '#e8365a') : '#1d2b4f';
-      s += `<rect x="${a + 2}" y="${Y - 7}" width="${b - a - 4}" height="14" rx="7" fill="${it.col}" opacity=".35"/>`;
-      s += `<line x1="${a + 6}" y1="${Y - 34}" x2="${b - 14}" y2="${Y - 34}" stroke="${it.col}" stroke-width="3"/>`;
-      s += `<path d="M${b - 4} ${Y - 34} l-11 -6 v12 z" fill="${it.col}"/>`;
-      if (isU && !reveal) s += `<rect x="${m - 38}" y="${Y - 62}" width="76" height="26" rx="13" fill="#ffe1e6" stroke="#e8365a" stroke-width="2" class="dg-pulse"/>`;
-      s += `<text x="${m}" y="${Y - 43}" text-anchor="middle" font-size="18" fill="${col}">${lab}</text>`;
-      s += `<text x="${m}" y="${Y - 72}" text-anchor="middle" font-size="30">${it.ic}</text>`;
-      if (p.th.id !== 'watch') s += `<text x="${m}" y="${Y + 26}" text-anchor="middle" font-size="12" fill="#5a6a8f">${it.nm}</text>`;
+      s += `<rect x="${a + 2}" y="${Y - 6}" width="${b - a - 4}" height="12" rx="6" fill="${A.col}" opacity=".25"/>`;
+      s += `<line x1="${a + 6}" y1="78" x2="${b - 12}" y2="78" stroke="${A.col}" stroke-width="3"/>`;
+      s += `<path d="M${b - 4} 78 l-11 -6 v12 z" fill="${A.col}"/>`;
+      s += `<text x="${m}" y="68" text-anchor="middle" font-size="17" fill="${col}">${lab}</text>`;
+      s += `<text x="${m}" y="40" text-anchor="middle" font-size="28">${A.ic}</text>`;
     });
-    xs.forEach(x => { s += `<line x1="${x}" y1="${Y - 11}" x2="${x}" y2="${Y + 11}" stroke="#1d2b4f" stroke-width="3"/>`; });
-    s += `<text x="${X0}" y="${Y + 26}" text-anchor="middle" font-size="11" fill="#5a6a8f">${p.th.id === 'watch' ? '' : 'СТАРТ'}</text>`;
-    s += `<text x="${X1 + 24}" y="${Y + 8}" text-anchor="middle" font-size="24">🏁</text>`;
-    /* бүтінді көрсететін жақша */
-    const mid = (X0 + X1) / 2, by = Y + 36;
-    s += `<path d="M${X0} ${by} Q${X0} ${by + 12} ${X0 + 12} ${by + 12} L${mid - 12} ${by + 12} Q${mid} ${by + 12} ${mid} ${by + 24} Q${mid} ${by + 12} ${mid + 12} ${by + 12} L${X1 - 12} ${by + 12} Q${X1} ${by + 12} ${X1} ${by}" fill="none" stroke="#5a6a8f" stroke-width="2.5"/>`;
+    xs.forEach(x => { s += `<line x1="${x}" y1="${Y - 10}" x2="${x}" y2="${Y + 10}" stroke="#1d2b4f" stroke-width="3"/>`; });
+    const mid = (X0 + X1) / 2;
+    s += `<path d="M${X0} 128 Q${X0} 140 ${X0 + 12} 140 L${mid - 12} 140 Q${mid} 140 ${mid} 152 Q${mid} 140 ${mid + 12} 140 L${X1 - 12} 140 Q${X1} 140 ${X1} 128" fill="none" stroke="#5a6a8f" stroke-width="2.5"/>`;
     const tU = p.unk === p.n;
-    if (tU && !reveal) s += `<rect x="${mid - 90}" y="${by + 30}" width="180" height="28" rx="14" fill="#ffe1e6" stroke="#e8365a" stroke-width="2" class="dg-pulse"/>`;
-    s += `<text x="${mid}" y="${by + 50}" text-anchor="middle" font-size="18" fill="${tU ? (reveal ? '#178a4b' : '#e8365a') : '#1d2b4f'}">${tU && !reveal ? '? ' + U : p.T + ' ' + U} (барлығы)</text>`;
-    /* жүгіретін кейіпкер */
+    s += `<text x="${mid}" y="172" text-anchor="middle" font-size="18" fill="${tU ? (reveal ? '#178a4b' : '#e8365a') : '#1d2b4f'}">${tU && !reveal ? '? мин' : p.T + ' мин'} (барлығы)</text>`;
+    s += `<text x="${X1 + 18}" y="${Y + 2}" text-anchor="middle" font-size="22">🏁</text>`;
     if (runX != null) {
-      s += `<text x="${runX}" y="${Y - 10}" text-anchor="middle" font-size="28">${runIc}</text>`;
-      s += `<text x="624" y="26" text-anchor="end" font-size="16" fill="#1f4fb8">${prog} ${U}</text>`;
+      s += `<text x="${runX}" y="${Y - 12}" text-anchor="middle" font-size="26">${runIc}</text>`;
+      s += `<text x="${X1}" y="20" text-anchor="end" font-size="16" fill="#1f4fb8">⏱ ${clock} мин</text>`;
     }
     svg.innerHTML = s;
   }
   function animateRun(p, done) {
-    const t0 = performance.now(), dur = 2600;
+    const t0 = performance.now(), dur = 2600, xs = bounds(p);
     cancelAnimationFrame(raf);
     const step = t => {
       if (!st) return;
       const q = clamp((t - t0) / dur, 0, 1), x = X0 + (X1 - X0) * q;
-      draw(p, true, x, p.th.runner, Math.round(p.T * q));
+      let k = 0; while (k < p.n - 1 && x > xs[k + 1]) k++;
+      draw(p, true, x, ACTS[p.ids[k]].ic, Math.round(p.T * q));
       if (q < 1) raf = requestAnimationFrame(step); else done && done();
     };
     raf = requestAnimationFrame(step);
   }
 
-  /* ---- түсіндірме ---- */
   function explainHTML(p) {
-    const U = p.th.unit, known = p.vals.filter((v, k) => k !== p.unk);
+    const known = p.vals.filter((v, k) => k !== p.unk);
     if (p.unk === p.n) {
       return `<div class="ok-box">📐 Ереже: <b>бүтінді табу үшін бөліктерді қосамыз.</b></div>
-        <div class="formula">${p.vals.join(' + ')} = <b>${p.T}</b> ${U}</div>`;
+        <div class="formula">${p.vals.join(' + ')} = <b>${p.T}</b> мин</div>`;
     }
     const sumK = known.reduce((a, b) => a + b, 0);
     let h = `<div class="ok-box">📐 Ереже: <b>белгісіз бөлікті табу үшін бүтіннен белгілі бөліктерді азайтамыз.</b></div>`;
-    if (known.length > 1) h += `<div class="step"><span class="tag">1-қадам</span>Белгілі бөліктерді қосамыз:<div class="formula" style="font-size:20px">${known.join(' + ')} = <b>${sumK}</b> ${U}</div></div>
-      <div class="step"><span class="tag">2-қадам</span>Бүтіннен азайтамыз:<div class="formula" style="font-size:20px">${p.T} − ${sumK} = <b>${p.ans}</b> ${U}</div></div>`;
-    else h += `<div class="formula">${p.T} − ${sumK} = <b>${p.ans}</b> ${U}</div>`;
-    h += `<p>✔ Тексеру: ${p.vals.join(' + ')} = ${p.T} ${U}</p>`;
+    if (known.length > 1) h += `<div class="step"><span class="tag">1-қадам</span>Белгілі бөліктерді қосамыз:<div class="formula" style="font-size:20px">${known.join(' + ')} = <b>${sumK}</b> мин</div></div>
+      <div class="step"><span class="tag">2-қадам</span>Бүтіннен азайтамыз:<div class="formula" style="font-size:20px">${p.T} − ${sumK} = <b>${p.ans}</b> мин</div></div>`;
+    else h += `<div class="formula">${p.T} − ${sumK} = <b>${p.ans}</b> мин</div>`;
+    h += `<p>✔ Тексеру: ${p.vals.join(' + ')} = ${p.T} мин</p>`;
     return h;
   }
   function diagnose(p, ch) {
     const known = p.vals.filter((v, k) => k !== p.unk), sumK = known.reduce((a, b) => a + b, 0);
     if (p.unk !== p.n) {
-      if (ch === p.T + sumK) return `Сен барлық сандарды қостың. Бірақ ${p.T} ${p.th.unit} — бұл <b>бүтін</b> (барлығы), ол бөліктердің қосындысы. Белгісіз бөлікті табу үшін азайту керек!`;
+      if (ch === p.T + sumK) return `Сен барлық сандарды қостың. Бірақ ${p.T} мин — бұл <b>бүтін</b> (барлық уақыт), ол бөліктердің қосындысы. Белгісіз бөлікті табу үшін азайту керек!`;
       if (known.length > 1 && known.some(v => ch === p.T - v)) return 'Сен тек бір бөлікті азайттың. Бүтіннен <b>белгілі бөліктердің бәрін</b> азайту керек!';
       if (ch === sumK) return `${sumK} — бұл белгілі бөліктердің қосындысы ғана. Енді оны бүтіннен (${p.T}) азайт!`;
-    } else if (p.vals.includes(ch)) return 'Бұл — бір бөлік қана. Сұрақ <b>барлығы</b> туралы — бөліктердің бәрін қос!';
+    } else {
+      if (p.vals.some(v => ch === v)) return 'Бұл — бір бөлік қана. Сұрақ барлық уақыт туралы!';
+    }
     return 'Сызбаға тағы бір қара: бүтін — үлкен жақшаның астындағы сан, бөліктер — жебелердің үстіндегі сандар.';
   }
 
-  /* ---- қадамдар ---- */
   function render() {
     const p = st.p;
     $('#dg-num').textContent = `${st.i + 1} / ${ROUND}`;
@@ -673,25 +609,23 @@ Diag = (() => {
   }
   function chooseQ(k, btn) {
     const p = st.p;
-    if (st.qDone) return;
     Sound.init();
     if (k === p.unk) {
-      st.qDone = true;
       Sound.good(); btn.classList.add('ok');
       storyBox.innerHTML = storyHTML(p, true);
       setTimeout(() => { if (st) solveStep(); }, 500);
     } else {
       Sound.bad(); btn.classList.remove('bad'); void btn.offsetWidth; btn.classList.add('bad');
       st.qErr++;
-      const known = k === p.n ? `барлығы белгілі — ${p.T} ${p.th.unit}` : `бұл бөлік белгілі — ${p.vals[k]} ${p.th.unit}`;
+      const known = k === p.n ? `барлық уақыт белгілі — ${p.T} мин` : `${ACTS[p.ids[k]].nm} уақыты белгілі — ${p.vals[k]} мин`;
       $('#dg-fb').innerHTML = `<div class="diag">🤖 Сызбада ${known}. Сұрақ <b>«?» тұрған жерге</b> қойылады — белгісізді табамыз!</div>`;
     }
   }
   function solveStep() {
     stepBox.innerHTML = `<h3><span class="tag">2-қадам</span>Есепті шығар</h3>
       <form class="ans-row" id="dg-form" autocomplete="off">
-        <input id="dg-in" type="number" inputmode="numeric" min="0" max="9999" aria-label="Жауап" placeholder="?">
-        <span class="unit">${p().th.unit}</span>
+        <input id="dg-in" type="number" inputmode="numeric" min="0" max="999" aria-label="Жауап" placeholder="?">
+        <span class="unit">мин</span>
         <button type="submit" class="btn btn-green">✔ Тексеру</button>
         <button type="button" class="btn btn-purple" id="dg-hint">🤖 Кеңес</button>
       </form>
@@ -700,45 +634,32 @@ Diag = (() => {
     $('#dg-form').addEventListener('submit', ev => { ev.preventDefault(); check(inp.value); });
     $('#dg-hint').addEventListener('click', hint);
   }
-  const p = () => st.p;
   function hint() {
-    const P = st.p; st.hintLvl++;
+    const p = st.p; st.hintLvl++;
     Sound.click();
-    const rule = P.unk === P.n ? 'Бүтінді табу үшін бөліктерді қосамыз.' : 'Белгісіз бөлікті табу үшін бүтіннен белгілі бөліктерді азайтамыз.';
-    const ex = P.unk === P.n ? `${P.vals.join(' + ')} = ?` : `${P.T} − ${P.vals.filter((v, k) => k !== P.unk).join(' − ')} = ?`;
+    const rule = p.unk === p.n ? 'Бүтінді табу үшін бөліктерді қосамыз.' : 'Белгісіз бөлікті табу үшін бүтіннен белгілі бөліктерді азайтамыз.';
+    const ex = p.unk === p.n ? `${p.vals.join(' + ')} = ?` : `${p.T} − ${p.vals.filter((v, k) => k !== p.unk).join(' − ')} = ?`;
     $('#dg-fb').innerHTML = `<div class="ok-box">💡 ${rule}${st.hintLvl >= 2 ? `<div class="formula" style="font-size:22px">${ex}</div>` : '<br><small>Тағы басып көр — келесі кеңес шығады.</small>'}</div>`;
   }
   function check(raw) {
-    const P = st.p, fb = $('#dg-fb');
+    const p = st.p, fb = $('#dg-fb');
     const v = raw === '' ? NaN : Number(raw);
     if (!Number.isFinite(v) || v < 0 || !Number.isInteger(v)) { fb.innerHTML = '<div class="diag">Жауапқа бүтін сан жаз 🙂</div>'; return; }
-    if (v === P.ans) {
-      lock();
+    $('#dg-form').querySelectorAll('button,input').forEach(x => { x.disabled = true; });
+    if (v === p.ans) {
       st.correct++;
-      const pts = st.tries ? 4 : st.hintLvl ? 6 : st.qErr ? 8 : 10;
+      const pts = st.hintLvl ? 5 : (st.qErr ? 8 : 10);
       st.score += pts; $('#dg-score').textContent = st.score;
       Sound.good();
-      fb.innerHTML = `<div class="ok-box">🎉 ${pick(PRAISE)} +${pts} ⭐ Жауабы: <b>${P.ans} ${P.th.unit}</b>. Мәреге жеттік!</div>${explainHTML(P)}`;
-      animateRun(P, () => { Sound.win(); });
-      nextBtn(fb);
-      return;
+      fb.innerHTML = `<div class="ok-box">🎉 ${pick(PRAISE)} +${pts} ⭐ Жауабы: <b>${p.ans} мин</b>. Айзере мәреге жетті!</div>${explainHTML(p)}`;
+      animateRun(p, () => { Sound.win(); });
+    } else {
+      st.wrong++;
+      Sound.bad();
+      draw(p, true);
+      fb.innerHTML = `<div class="diag">🤖 Сенің жауабың: <s>${v}</s>. ${diagnose(p, v)}</div>${explainHTML(p)}`;
+      st.retry.push(p);
     }
-    Sound.bad();
-    if (!st.tries) {                                             // 1-қате: тағы бір мүмкіндік
-      st.tries = 1;
-      const inp = $('#dg-in'); inp.value = ''; inp.focus();
-      fb.innerHTML = `<div class="diag">🤖 Сенің жауабың: <s>${v}</s>. ${diagnose(P, v)}<br><b>Тағы бір рет байқап көр!</b> 💪</div>`;
-      return;
-    }
-    lock();                                                      // 2-қате: шешуін көрсетеміз
-    st.wrong++;
-    draw(P, true);
-    fb.innerHTML = `<div class="diag">🤖 Сенің жауабың: <s>${v}</s>. ${diagnose(P, v)}</div>${explainHTML(P)}`;
-    st.retry.push({ theme: P.th.id, total: P.unk === P.n });
-    nextBtn(fb);
-  }
-  function lock() { $('#dg-form').querySelectorAll('button,input').forEach(x => { x.disabled = true; }); }
-  function nextBtn(fb) {
     const nb = document.createElement('div'); nb.className = 'dg-actions';
     nb.innerHTML = `<button type="button" class="btn btn-blue" id="dg-next">${st.i + 1 >= ROUND ? '🏁 Нәтиже' : 'Келесі есеп ▶'}</button>`;
     fb.appendChild(nb);
@@ -749,10 +670,12 @@ Diag = (() => {
     Sound.click();
     st.i++;
     if (st.i >= ROUND) return finish();
-    st.qErr = 0; st.hintLvl = 0; st.tries = 0; st.qDone = false;
-    // қате кеткен есептің ТҮРІ (тақырып + «?» орны) жаңа сандармен қайта беріледі
-    if (st.retry.length && st.i >= 3 && Math.random() < .6) st.p = make(st.i, st.retry.shift());
-    else st.p = make(st.i);
+    st.qErr = 0; st.hintLvl = 0;
+    if (st.retry.length && st.i >= 3 && Math.random() < .6) {
+      const old = st.retry.shift(); let p;
+      do { p = make(st.i); } while (p.n !== old.n && Math.random() < .8);
+      st.p = p;
+    } else st.p = make(st.i);
     render();
   }
   function finish() {
@@ -763,9 +686,311 @@ Diag = (() => {
       again: () => show('diag'), next: null });
   }
   return {
-    enter() { cancelAnimationFrame(raf); st = { i: 0, score: 0, correct: 0, wrong: 0, qErr: 0, hintLvl: 0, tries: 0, qDone: false, retry: [], t0: performance.now() }; st.p = make(0); render(); },
+    enter() { cancelAnimationFrame(raf); st = { i: 0, score: 0, correct: 0, wrong: 0, qErr: 0, hintLvl: 0, retry: [], t0: performance.now() }; st.p = make(0); render(); },
     stop() { cancelAnimationFrame(raf); st = null; },
     _make: make
+  };
+})();
+
+/* ============================== СЕРГІТУ СӘТІ (3 минут, музыкамен) ============================== */
+Break = (() => {
+  const TOTAL = 180;
+  const stage = $('#br-stage'), hero = $('#br-hero'), ring = $('#br-ring');
+  const elTitle = $('#br-title'), elTask = $('#br-task'), elCount = $('#br-count'), elViz = $('#br-viz');
+  const eq = $('#br-eq');
+  for (let i = 0; i < 24; i++) eq.appendChild(document.createElement('i'));
+  const bars = $$('i', eq);
+
+  /* ---------- МУЗЫКА: WebAudio арқылы генерацияланатын көңілді трек ---------- */
+  const Music = (() => {
+    let ctx = null, master = null, noise = null, timer = 0, step = 0, nextT = 0, mode = 'party', on = false;
+    const BPM = 124, S16 = 60 / BPM / 4;
+    // Аккордтар: C — Am — F — G (әр аккорд = 1 такт)
+    const CH = [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50]];
+    const LEAD = [ // 64 қадам (4 такт), -1 = үзіліс
+      72, -1, 76, -1, 79, -1, 76, 74, 72, -1, 67, -1, 72, -1, 74, -1,
+      72, -1, 76, -1, 81, -1, 79, 76, 76, -1, 72, -1, 69, -1, 72, -1,
+      69, -1, 72, -1, 77, -1, 76, 72, 69, -1, 65, -1, 69, -1, 72, -1,
+      71, -1, 74, -1, 79, -1, 77, 74, 79, -1, 77, -1, 76, -1, 74, -1];
+    const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+    function ensure() {
+      Sound.init(); ctx = Sound.ctx; if (!ctx) return false;
+      if (!master) {
+        master = ctx.createGain(); master.connect(ctx.destination);
+        const len = ctx.sampleRate * .5; noise = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = noise.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      }
+      return true;
+    }
+    function vol() { return (D.muted || !D.music) ? 0 : .55; }
+    function osc(type, f, t, d, v, dest = master) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + d + .05);
+    }
+    function kick(t) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .15);
+      g.gain.setValueAtTime(.9, t); g.gain.exponentialRampToValueAtTime(.001, t + .25);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + .3);
+    }
+    function hit(t, hp, d, v) {
+      const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noise; f.type = 'highpass'; f.frequency.value = hp;
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + d + .02);
+    }
+    function schedule(t, i) {
+      const bar = Math.floor(i / 16) % 4, s = i % 16, ch = CH[bar];
+      if (mode === 'calm') {
+        if (s === 0) ch.forEach(m => osc('sine', hz(m + 12), t, S16 * 16, .07));
+        if (s % 4 === 0) osc('triangle', hz(LEAD[i % 64] > 0 ? LEAD[i % 64] : 72), t, S16 * 3, .04);
+        return;
+      }
+      if (s % 4 === 0) { kick(t); pulse(t); }
+      if (s === 4 || s === 12) hit(t, 1500, .18, .35);
+      if (s % 2 === 0) hit(t, 7000, .05, .12); else if (mode === 'party') hit(t, 9000, .03, .06);
+      if (s % 2 === 0) osc('triangle', hz(ch[0] - 12 + (s % 8 === 6 ? 12 : 0)), t, S16 * 1.8, .32);
+      const n = LEAD[i % 64];
+      if (n > 0) osc('square', hz(n), t, S16 * 1.6, .06);
+      if (mode === 'party' && s % 4 === 2) ch.forEach(m => osc('sawtooth', hz(m + 12), t, S16 * .9, .025));
+    }
+    function pulse(t) {
+      const delay = Math.max(0, (t - ctx.currentTime) * 1000);
+      setTimeout(() => {
+        if (!on) return;
+        stage.classList.remove('beat'); void stage.offsetWidth; stage.classList.add('beat');
+        bars.forEach(b => { b.style.height = (10 + Math.random() * (mode === 'calm' ? 25 : 90)) + '%'; });
+      }, delay);
+    }
+    function loop() {
+      while (nextT < ctx.currentTime + .12) { schedule(nextT, step); nextT += S16; step++; }
+    }
+    return {
+      start() { if (on || !ensure()) return; on = true; master.gain.value = vol(); nextT = ctx.currentTime + .05; timer = setInterval(loop, 25); },
+      stop() { on = false; clearInterval(timer); if (master) master.gain.value = 0; bars.forEach(b => { b.style.height = '10%'; }); },
+      setMode(m) { mode = m; },
+      apply() { if (master) master.gain.value = on ? vol() : 0; },
+      get on() { return on; }
+    };
+  })();
+
+  /* ---------- Бағдарлама (сценарий) ---------- */
+  const TF_POOL = [['3² = 9', true], ['2³ = 6', false], ['5² = 25', true], ['1³ = 3', false], ['4² = 16', true], ['10² = 20', false], ['2³ = 8', true], ['3³ = 9', false], ['6² = 36', true], ['2² = 8', false]];
+  function build() {
+    const tfs = shuffle(TF_POOL.slice()).slice(0, 6);
+    const segs = [
+      { k: 'intro', dur: 6, hue: 280, hero: '🙆‍♀️', mv: 'mv-sway', title: 'Орныңнан тұр! 🎶', task: 'Музыкаға қосылып, тербел!' },
+      { k: 'reps', hue: 200, hero: '🙆‍♀️', mv: 'mv-reach', title: 'Созыламыз 🌤️', task: 'Қолыңды жоғары соз — күнге жет!', pre: 2, n: 8, iv: 1.25, viz: null },
+      { k: 'reps', hue: 330, hero: '🤸‍♀️', mv: 'mv-jump', title: 'Секіреміз! 🐸', base: 2, e: 2, act: 'рет секір!', pre: 4, iv: 1.1, viz: 'sq' },
+      { k: 'reps', hue: 30, hero: '🏋️‍♀️', mv: 'mv-squat', title: 'Отырып-тұрамыз 💪', base: 3, e: 2, act: 'рет отырып-тұр!', pre: 4, iv: 1.5, viz: 'sq' },
+      { k: 'reps', hue: 190, hero: '⛷️', mv: 'mv-ski', title: 'Шаңғышы Айзере ⛷️', base: 2, e: 3, act: 'рет таяқпен итеріл! (қолды алға-артқа сілте)', pre: 4, iv: 1.2, viz: 'cu' },
+      { k: 'draw', hue: 140, hero: '✍️', mv: 'mv-reach', title: 'Ауада квадрат сыз 🟦', task: 'Квадраттың <b>4</b> бірдей қабырғасы бар! Қолыңмен ауада <b>3</b> квадрат сыз.', pre: 3, n: 12, iv: 1 },
+      { k: 'tf', hue: 50, title: 'Ақиқат па, жалған ба? 🤔', task: 'Ақиқат — <b>қолды жоғары көтер 🙌</b><br>Жалған — <b>отыр 🧎</b>', pre: 3, items: tfs, each: 5 },
+      { k: 'reps', hue: 300, hero: '👏', mv: 'mv-clap', title: 'Шапалақ! 👏', base: 4, e: 2, act: 'рет шапалақта!', pre: 4, iv: .75, viz: 'sq' },
+      { k: 'reps', hue: 10, hero: '🕺', mv: 'mv-stomp', title: 'Топ-топ! 🦶', expr: '1³ + 2²', val: 5, show: '1³ + 2² = 1 + 4 = <b>5</b>', act: 'рет аяқпен топ-топ!', pre: 4, iv: 1.3, viz: null },
+      { k: 'breath', hue: 220, hero: '🧘‍♀️', mv: 'mv-breath', title: 'Тынысты басамыз 🌬️', pre: 2, n: 3, iv: 8 },
+      { k: 'outro', hue: 280, hero: '🏆', mv: 'mv-party', title: 'Жарайсың! 🎉', task: 'Сен 3 минут бойы <b>квадрат пен кубпен</b> бірге қозғалдың! Енді сабаққа дайынсың 💪' }
+    ];
+    let used = 0;
+    for (const s of segs) {
+      if (s.k === 'reps') { s.n = s.n || (s.val != null ? s.val : powv(s.base, s.e)); s.dur = s.pre + s.n * s.iv + 1.5; }
+      if (s.k === 'draw') s.dur = s.pre + s.n * s.iv + 1.5;
+      if (s.k === 'tf') s.dur = s.pre + s.items.length * s.each;
+      if (s.k === 'breath') s.dur = s.pre + s.n * s.iv;
+      if (s.k !== 'outro') used += s.dur;
+    }
+    segs[segs.length - 1].dur = Math.max(4, TOTAL - used);
+    let t = 0; segs.forEach(s => { s.t0 = t; t += s.dur; });
+    return segs;
+  }
+
+  let st = null, raf = 0;
+
+  function setHero(emoji, mv, retrigger) {
+    if (hero.textContent !== emoji) hero.textContent = emoji;
+    if (retrigger || hero.dataset.mv !== mv) {
+      hero.className = 'br-hero'; void hero.offsetWidth; if (mv) hero.classList.add(mv); hero.dataset.mv = mv || '';
+    }
+  }
+  function ringPulse() { ring.classList.remove('pulse'); void ring.offsetWidth; ring.classList.add('pulse'); }
+  function popCount(html) { elCount.innerHTML = html; elCount.classList.remove('pop'); void elCount.offsetWidth; elCount.classList.add('pop'); }
+  function repBeep(i, n) { Sound.tone(523 * Math.pow(2, (i % 8) / 12 * 2), .12, 'triangle', .16); if (i === n) Sound.tone(1046, .25, 'triangle', .14, .1); }
+
+  function vizHTML(s) {
+    if (s.viz === 'sq') {
+      const b = s.base, sz = b >= 4 ? 22 : 30;
+      return `<div class="br-grid" style="--n:${b};--s:${sz}px;--c:#ff4fa3">${'<i></i>'.repeat(b * b)}</div>`;
+    }
+    if (s.viz === 'cu') {
+      let h = '';
+      for (let l = 0; l < s.base; l++) h += `<div class="br-layer"><div class="br-grid" style="--n:${s.base};--s:30px;--c:#8e5cf7">${'<i></i>'.repeat(s.base * s.base)}</div>${l + 1}-қабат</div>`;
+      return h;
+    }
+    if (s.k === 'draw') return '<div class="br-arrows"><span>⬆️</span><span>➡️</span><span>⬇️</span><span>⬅️</span></div>';
+    return '';
+  }
+  function lightViz(count) {
+    $$('.br-grid i', elViz).forEach((c, i) => c.classList.toggle('on', i < count));
+  }
+
+  function enterSeg(s, idx) {
+    stage.style.setProperty('--h', s.hue);
+    $('#br-step').textContent = `${idx + 1} / ${st.segs.length}`;
+    elTitle.innerHTML = s.title;
+    elCount.innerHTML = '';
+    elViz.innerHTML = vizHTML(s);
+    Music.setMode(s.k === 'breath' ? 'calm' : (s.k === 'tf' || s.k === 'reps' && s.iv < 1 ? 'party' : 'groove'));
+    if (s.k === 'tf') setHero('🤔', 'mv-sway');
+    else setHero(s.hero, s.k === 'reps' || s.k === 'draw' ? 'mv-sway' : s.mv);
+    if (s.k === 'reps') {
+      if (s.base) elTask.innerHTML = `<span class="eq">${s.base}${SUP[s.e]} = ?</span>Ойлан... 🤔`;
+      else if (s.expr) elTask.innerHTML = `<span class="eq">${s.expr} = ?</span>Ойлан... 🤔`;
+      else elTask.innerHTML = s.task;
+    } else elTask.innerHTML = s.task || '';
+    if (s.k === 'outro') { Snow.burst(220); Sound.win(); }
+    st.lastRep = 0; st.phase = '';
+  }
+
+  function updateSeg(s, lt) {
+    if (s.k === 'reps' || s.k === 'draw') {
+      if (lt < s.pre) {
+        const half = s.pre / 2;
+        if (s.k === 'reps' && (s.base || s.expr) && lt >= half && st.phase !== 'reveal') {
+          st.phase = 'reveal';
+          const eqs = s.base ? `${s.base}${SUP[s.e]} = ${mulStr(s.base, s.e)} = <b>${s.n}</b>` : s.show;
+          elTask.innerHTML = `<span class="eq">${eqs}</span><b>${s.n}</b> ${s.act}`;
+          Sound.good();
+        }
+        const left = Math.ceil(s.pre - lt);
+        if (lt >= s.pre - 1.5 && st.phase !== 'ready' && st.phase !== 'go') { st.phase = 'ready'; popCount('<small>Дайын бол...</small>'); }
+        return left;
+      }
+      const rep = Math.min(s.n, Math.floor((lt - s.pre) / s.iv) + 1);
+      if (rep !== st.lastRep && lt - s.pre < s.n * s.iv) {
+        st.lastRep = rep;
+        setHero(s.hero, s.mv, true); ringPulse(); repBeep(rep, s.n);
+        if (s.k === 'draw') {
+          const side = (rep - 1) % 4;
+          $$('.br-arrows span', elViz).forEach((a, i) => a.classList.toggle('on', i === side));
+          popCount(`${Math.ceil(rep / 4)}<small>-квадрат · ${side + 1}-қабырға</small>`);
+        } else {
+          popCount(`${rep}<small> / ${s.n}</small>`);
+          lightViz(rep);
+        }
+      }
+      if (lt - s.pre >= s.n * s.iv && st.phase !== 'done') {
+        st.phase = 'done';
+        if (s.k === 'reps') lightViz(s.n);
+        popCount(`${pick(['🎉', '⭐', '💪', '🔥'])}<small> ${pick(PRAISE)}</small>`);
+        setHero(s.hero, 'mv-sway');
+      }
+      return;
+    }
+    if (s.k === 'tf') {
+      if (lt < s.pre) return;
+      const i = Math.min(s.items.length - 1, Math.floor((lt - s.pre) / s.each)), sub = (lt - s.pre) - i * s.each;
+      const [stmt, truth] = s.items[i];
+      const key = i + (sub >= 3 ? 'r' : 'q');
+      if (st.phase !== key) {
+        st.phase = key;
+        if (sub < 3) {
+          elTask.innerHTML = `<span class="eq">${stmt}</span>`;
+          elViz.innerHTML = '<div class="br-tf"><div>🙌 Ақиқат</div><div>🧎 Жалған</div></div>';
+          popCount(`<small>${i + 1} / ${s.items.length} · Ойлан!</small>`);
+          setHero('🤔', 'mv-sway'); Sound.tick();
+        } else {
+          const tfDivs = $$('.br-tf div', elViz);
+          tfDivs[0].className = truth ? 'win' : 'lose'; tfDivs[1].className = truth ? 'lose' : 'win';
+          popCount(truth ? '✅<small> Ақиқат!</small>' : '❌<small> Жалған!</small>');
+          setHero(truth ? '🙋‍♀️' : '🧎‍♀️', truth ? 'mv-up' : 'mv-down', true); ringPulse();
+          truth ? Sound.good() : Sound.tone(330, .25, 'triangle', .15);
+        }
+      }
+      return;
+    }
+    if (s.k === 'breath') {
+      if (lt < s.pre) { if (st.phase !== 'pre') { st.phase = 'pre'; elTask.innerHTML = 'Тыныш тұр, иығыңды босат...'; } return; }
+      const c = Math.floor((lt - s.pre) / s.iv) + 1, sub = (lt - s.pre) % s.iv, inn = sub < 4;
+      const key = c + (inn ? 'i' : 'o');
+      if (st.phase !== key) {
+        st.phase = key;
+        elTask.innerHTML = inn ? 'Мұрынмен <b>терең дем ал...</b> 🌬️ (қолды жоғары көтер)' : 'Ауызбен <b>ақырын дем шығар...</b> 😮‍💨 (қолды түсір)';
+        if (c === 1 && inn) setHero('🧘‍♀️', 'mv-breath', true);
+      }
+      elCount.innerHTML = `${4 - Math.floor(sub % 4)}<small> · ${c} / ${s.n}</small>`;
+    }
+  }
+
+  function fmt(sec) { sec = Math.max(0, Math.ceil(sec)); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; }
+
+  function tick(now) {
+    if (!st) return;
+    const dt = Math.min(.1, (now - st.last) / 1000); st.last = now;
+    if (st.running) st.t += dt;
+    const t = Math.min(st.t, TOTAL);
+    let idx = st.segs.findIndex(s => t < s.t0 + s.dur); if (idx < 0) idx = st.segs.length - 1;
+    if (idx !== st.idx) { st.idx = idx; enterSeg(st.segs[idx], idx); }
+    const s = st.segs[idx];
+    updateSeg(s, t - s.t0);
+    $('#br-time').textContent = fmt(TOTAL - t);
+    $('#br-bar').style.width = (t / TOTAL * 100) + '%';
+    if (st.t >= TOTAL) return finish();
+    raf = requestAnimationFrame(tick);
+  }
+
+  function finish() {
+    st.running = false; Music.stop();
+    const box = $('#br-start');
+    box.innerHTML = `<div class="br-big">🏆</div><h2>Сергіту сәті аяқталды!</h2>
+      <p>Тамаша! Сен ${D.name ? '<b>' + esc(D.name) + '</b>, ' : ''}секірдің, отырып-тұрдың, шапалақтадың — бәрі <b>квадрат пен куб</b> бойынша! 🟦🧊</p>
+      <div class="br-ctrl"><button id="br-again" class="btn big btn-pink" type="button">↻ Тағы бір рет</button>
+      <button id="br-home" class="btn big btn-ghost" type="button">🏠 Мәзір</button></div>`;
+    box.classList.remove('hidden');
+    $('#br-again').addEventListener('click', begin);
+    $('#br-home').addEventListener('click', () => show('menu'));
+    Snow.burst(200);
+  }
+
+  function paintCtrl() {
+    $('#br-play').textContent = st && st.running ? '⏸ Үзіліс' : '▶ Жалғастыру';
+    $('#br-music').textContent = D.music ? '🎵 Музыка: қосулы' : '🔇 Музыка: өшірулі';
+  }
+  function begin() {
+    Sound.init(); Sound.go();
+    $('#br-start').classList.add('hidden');
+    st = { segs: build(), t: 0, idx: -1, running: true, last: performance.now(), lastRep: 0, phase: '' };
+    Music.start(); Music.apply(); paintCtrl();
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(tick);
+  }
+  $('#br-play').addEventListener('click', () => {
+    if (!st) return;
+    st.running = !st.running;
+    if (st.running) { Music.start(); Music.apply(); } else Music.stop();
+    paintCtrl();
+  });
+  $('#br-skip').addEventListener('click', () => {
+    if (!st) return;
+    const s = st.segs[st.idx]; st.t = Math.min(TOTAL, s.t0 + s.dur + .001); Sound.click();
+  });
+  $('#br-music').addEventListener('click', () => { D.music = !D.music; save(); Music.apply(); paintCtrl(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && current === 'break' && st && st.running) { st.running = false; Music.stop(); paintCtrl(); } });
+
+  const startHTML = $('#br-start').innerHTML;
+  return {
+    enter() {
+      cancelAnimationFrame(raf); st = null; Music.stop();
+      const box = $('#br-start'); box.innerHTML = startHTML; box.classList.remove('hidden');
+      $('#br-go').addEventListener('click', begin);
+      stage.style.setProperty('--h', 280);
+      setHero('🙆‍♀️', 'mv-sway'); elTitle.textContent = 'Сергіту сәті'; elTask.innerHTML = ''; elCount.innerHTML = ''; elViz.innerHTML = '';
+      $('#br-time').textContent = '3:00'; $('#br-bar').style.width = '0%'; paintCtrl();
+    },
+    stop() { cancelAnimationFrame(raf); Music.stop(); st = null; },
+    applyVolume() { Music.apply(); },
+    _build: build,
+    _seek(t) { if (st) st.t = t; }
   };
 })();
 
@@ -813,7 +1038,7 @@ Race = (() => {
     if (due >= 0) { q = genDirect(st.queue[due].f); st.queue.splice(due, 1); }
     else q = st.lvl.gen(st);
     st.lastKey = q.fact; st.cur = q; st.qi++;
-    $('#q-hint').textContent = `${st.qi} / ${TOTAL} · ${q.hint}`;
+    $('#q-hint').textContent = q.hint;
     $('#q-text').textContent = q.text;
     const qb = $('#qbox'); qb.classList.remove('pop'); void qb.offsetWidth; qb.classList.add('pop');
     const dist = H + 70 - skierY();
@@ -1285,5 +1510,5 @@ $('#modal').addEventListener('click', ev => { if (ev.target.id === 'modal') clos
 
 /* ============================== БАСТАУ ============================== */
 renderMenu();
-window.__AIZERE__ = { Race, Diag, LEVELS, genDirect, genReverse, genExpr, genSqCube, parseExpr, evalToks, TEXTBOOK, FACTS, describeNum };
+window.__AIZERE__ = { Race, Diag, Break, genDirect, genReverse, genExpr, genSqCube, parseExpr, evalToks, TEXTBOOK, FACTS, describeNum };
 })();
