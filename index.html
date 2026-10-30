@@ -36,10 +36,6 @@
         <g fill="#fff"><path d="M48 112 l6 -14 l6 14z"/><path d="M528 100 l8 -18 l8 18z"/></g>
         <rect x="560" y="105" width="3" height="40" fill="#555"/><path d="M563 105 l22 8 l-22 8z" fill="#2ecc71"/>
       </svg>
-      <div class="hero-sun" aria-hidden="true"></div>
-      <div class="hero-cloud c1" aria-hidden="true"></div>
-      <div class="hero-cloud c2" aria-hidden="true"></div>
-      <div class="hero-skier" aria-hidden="true">⛷️</div>
       <h1>Айзеренің шаңғы жарысы</h1>
       <p class="sub">Санның квадраты және кубы · Математика</p>
     </div>
@@ -52,8 +48,9 @@
     <div class="menu-grid">
       <button class="card c-blue" type="button" data-go="learn"><span class="ic">📘</span><b>Үйрену</b><small>Квадрат пен кубты көріп, түсін</small></button>
       <button class="card c-red" type="button" data-go="levels"><span class="ic">⛷️</span><b>Шаңғы жарысы</b><small>Дұрыс жауабы бар қақпадан өт!</small></button>
-      <button class="card c-orange" type="button" data-go="diag"><span class="ic">📏</span><b>Сызба бойынша есеп</b><small>Уақыт ⏱, трасса 🏔, эстафета 🎽 — сызбаны оқы да, шығар!</small></button>
+      <button class="card c-orange" type="button" data-go="diag"><span class="ic">📏</span><b>Сызба бойынша есеп</b><small>Сызбаны оқы, есеп құрастыр, шығар (6-тапсырма)</small></button>
       <button class="card c-green" type="button" data-go="tf"><span class="ic">✅</span><b>Ақиқат па, жалған ба?</b><small>60 секундтық сынақ</small></button>
+      <button class="card c-pink" type="button" data-go="break"><span class="ic">🎵</span><b>Сергіту сәті</b><small>3 минут: музыкамен секіріп, санап, билейміз!</small></button>
       <button class="card c-purple" type="button" data-go="map"><span class="ic">🏆</span><b>Шеберлік картасы</b><small>Қанша меңгердің?</small></button>
     </div>
 
@@ -119,7 +116,7 @@
   <!-- ===================== СЫЗБА БОЙЫНША ЕСЕП (6-тапсырма) ===================== -->
   <section id="scr-diag" class="screen">
     <h2 class="scr-title">📏 Сызба бойынша есеп</h2>
-    <p class="scr-sub">Оқулық, 6-тапсырма: сызбаны оқы, «?» тұрған жерге сұрақ құрастыр және есепті шығар!<br>Әр есепте сызба жаңарады: минут, километр немесе метр.</p>
+    <p class="scr-sub">Оқулық, 6-тапсырма: сызбаны оқы, сұрақ құрастыр және есепті шығар!</p>
     <div class="dg-wrap">
       <div class="tf-top">
         <div class="hud-chip">📝 <span id="dg-num">1 / 8</span></div>
@@ -127,10 +124,44 @@
       </div>
       <div class="bar tf-bar"><div class="bar-fill" id="dg-bar"></div></div>
       <div class="panel dg-card">
-        <svg id="dg-svg" viewBox="0 0 640 240" role="img" aria-label="Есептің сызбасы"></svg>
+        <svg id="dg-svg" viewBox="0 0 640 178" role="img" aria-label="Есептің сызбасы"></svg>
         <div class="dg-story" id="dg-story"></div>
       </div>
       <div class="panel dg-step" id="dg-step" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- ===================== СЕРГІТУ СӘТІ ===================== -->
+  <section id="scr-break" class="screen">
+    <div class="br-stage" id="br-stage">
+      <div class="br-eq" id="br-eq" aria-hidden="true"></div>
+      <div class="br-top">
+        <div class="hud-chip">🎵 Сергіту сәті</div>
+        <div class="hud-chip">⏱ <span id="br-time">3:00</span></div>
+        <div class="hud-chip" id="br-step">1 / 11</div>
+      </div>
+      <div class="bar br-bar"><div class="bar-fill" id="br-bar"></div></div>
+      <div class="br-main">
+        <div class="br-hero-wrap"><div class="br-ring" id="br-ring"></div><div class="br-hero" id="br-hero">🙆‍♀️</div></div>
+        <div class="br-card">
+          <div class="br-title" id="br-title">Сергіту сәті</div>
+          <div class="br-task" id="br-task"></div>
+          <div class="br-count" id="br-count" aria-live="polite"></div>
+          <div class="br-viz" id="br-viz"></div>
+        </div>
+      </div>
+      <div class="br-ctrl">
+        <button id="br-play" class="btn btn-green" type="button">⏸ Үзіліс</button>
+        <button id="br-skip" class="btn btn-blue" type="button">⏭ Келесі</button>
+        <button id="br-music" class="btn btn-purple" type="button">🎵 Музыка: қосулы</button>
+      </div>
+      <div class="br-start" id="br-start">
+        <div class="br-big">🎵🤸‍♀️🎵</div>
+        <h2>Сергіту сәті — 3 минут!</h2>
+        <p>Орныңнан тұр! Музыкамен бірге <b>секіреміз, отырып-тұрамыз, шапалақтаймыз</b>.<br>Неше рет қозғалатынымызды <b>квадрат пен куб</b> айтады! 🟦🧊</p>
+        <p class="muted">Айналаңда бос орын бар екенін тексер 🙂</p>
+        <button id="br-go" class="btn big btn-pink" type="button">▶ Бастадық!</button>
+      </div>
     </div>
   </section>
 
